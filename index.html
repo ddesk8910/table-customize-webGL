@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>blenderテスト</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="style.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="content-flex">
+      <div id="main_canvas" style="height: 50vw">
+        <canvas id="canvas" width="2560" height="2560"></canvas>
+      </div>
+    </div>
+    <div class="btn-container">
+      <input
+        type="radio"
+        id="camera-default"
+        name="camera"
+        value="default"
+        onchange="onChangeCamera(value)"
+        checked
+      />
+      <label for="camera-default">デフォルト</label>
+      <input
+        type="radio"
+        id="camera-front"
+        name="camera"
+        value="front"
+        onchange="onChangeCamera(value)"
+        checked
+      />
+      <label for="camera-front">正面</label>
+      <input
+        type="radio"
+        id="camera-above"
+        name="camera"
+        value="above"
+        onchange="onChangeCamera(value)"
+      />
+      <label for="camera-above">真上</label>
+    </div>
+  </body>
+</html>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.148.0/build/three.module.js",
+      "GLTFLoader": "https://unpkg.com/three@0.148.0/examples/jsm/loaders/GLTFLoader.js",
+      "OrbitControls": "https://unpkg.com/three@0.148.0/examples/jsm/controls/OrbitControls.js"
+    }
+  }
+</script>
+<script type="module">
+  import * as THREE from "three";
+  import { GLTFLoader } from "GLTFLoader";
+  import { OrbitControls } from "OrbitControls";
+
+  let frame = 0;
+  // scene
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color("gray");
+
+  // camera
+  const camera = new THREE.PerspectiveCamera(50, 1, 1, 10);
+  camera.rotation.order = "XYZ";
+  camera.position.set(1.5, 1, 1);
+  camera.rotation.set(-0.7, -0.8, 0.6);
+
+  //controls
+  const controls = new OrbitControls(camera, canvas);
+  controls.enableZoom = false;
+
+  // renderer
+  const renderer = new THREE.WebGLRenderer({
+    canvas: document.querySelector("#canvas"),
+  });
+
+  // light二種類
+  const light = new THREE.DirectionalLight(0xffffff, 0.75);
+  light.shadow.camera.near = 70;
+  light.shadow.camera.far = 80;
+  const light_temp = new THREE.AmbientLight(0xffffff, 0.3);
+  light.castShadow = true;
+  light.position.set(-40, 60, -10);
+  scene.add(light);
+  scene.add(light_temp);
+
+  // model
+  const loader = new GLTFLoader();
+
+  loader.load("wamodan_table.glb", function (model) {
+    model.scene.children[0].children[1].material.transparent = true;
+    model.scene.children[0].children[1].material.opacity = 0.1;
+    model.scene.children[0].children[0].castShadow = true;
+    model.scene.children[0].children[3].castShadow = true;
+    model.scene.children[0].children[2].receiveShadow = true;
+    model.scene.children[0].children[2].material.emissiveIntensity = 0.5;
+    model.scene.children[0].children[2].material.emissive.r = 1;
+    model.scene.children[0].children[2].material.emissive.g = 1;
+    model.scene.children[0].children[2].material.emissive.b = 1;
+
+    scene.add(model.scene);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.shadowMap.enabled = true;
+    renderer.render(scene, camera);
+  });
+
+  loader.load("wamodan_env.glb", function (model) {
+    model.scene.children[0].children[0].receiveShadow = true;
+    model.scene.children[0].children[0].material.reflectivity = 0;
+    model.scene.children[0].children[0].material.roughness = 1;
+
+    scene.add(model.scene);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.shadowMap.enabled = true;
+    renderer.render(scene, camera);
+  });
+
+  //描画処理軽量化
+  canvas.onmousedown = function mousedown() {
+    scene.remove(light);
+    document.addEventListener("mousemove", onMouseMove);
+  };
+
+  canvas.onmouseup = function mouseup() {
+    document.removeEventListener("mousemove", onMouseMove);
+    scene.add(light);
+    renderer.render(scene, camera);
+  };
+
+  function onMouseMove() {
+    frame++;
+    if (frame > 10) {
+      controls.update();
+      renderer.render(scene, camera);
+      frame = 0;
+    }
+  }
+
+  //ボタンによる制御
+  window.onChangeCamera = (value) => {
+    switch (value) {
+      case "front":
+        camera.position.set(1.8, 1, 0);
+        camera.rotation.set(1.6, 1, 1.6);
+        break;
+      case "above":
+        camera.position.set(0, 2, 0);
+        camera.rotation.set(-1.5, 0, 0.8);
+        break;
+      case "default":
+        camera.position.set(1.5, 1, 1);
+        camera.rotation.set(-0.7, -0.8, 0.6);
+        break;
+      default:
+        console.log("bug!");
+        break;
+    }
+    controls.update();
+    renderer.render(scene, camera);
+  };
+</script>
