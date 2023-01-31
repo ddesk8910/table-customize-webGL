@@ -239,6 +239,7 @@
   window.onChangeLeg = (value) => {
     thickness = value;
     updateChanges();
+    renderer.render(scene, camera);
   };
 
   window.onChangeFineness = (value) => {
@@ -296,6 +297,5 @@
         console.log("bug!");
         break;
     }
-    renderer.render(scene, camera);
   };
 </script>
