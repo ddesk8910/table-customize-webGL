@@ -9,10 +9,11 @@
   <body>
     <div class="content-flex">
       <div id="main_canvas" style="height: 50vw">
-        <canvas id="canvas" width="2560" height="2560"></canvas>
+        <canvas id="canvas" width="1280" height="1280"></canvas>
       </div>
     </div>
     <div class="btn-container">
+      <h2>カメラの位置リセット</h2>
       <input
         type="radio"
         id="camera-default"
@@ -39,6 +40,54 @@
         onchange="onChangeCamera(value)"
       />
       <label for="camera-above">真上</label>
+    </div>
+    <div class="btn-container">
+      <h2>足の太さ</h2>
+      <input
+        type="radio"
+        id="leg-default"
+        name="leg"
+        value="default"
+        onchange="onChangeLeg(value)"
+        checked
+      />
+      <label for="leg-default">デフォルト</label>
+      <input
+        type="radio"
+        id="leg-thin"
+        name="leg"
+        value="thin"
+        onchange="onChangeLeg(value)"
+      />
+      <label for="leg-thin">半分</label>
+    </div>
+    <div class="btn-container">
+      <h2>パネルの幅</h2>
+      <input
+        type="radio"
+        id="fineness-250mm"
+        name="fineness"
+        value="250"
+        onchange="onChangeFineness(value)"
+        checked
+      />
+      <label for="fineness-250mm">250mm</label>
+      <input
+        type="radio"
+        id="fineness-200mm"
+        name="fineness"
+        value="200"
+        onchange="onChangeFineness(value)"
+      />
+      <label for="fineness-200mm">200mm</label>
+      <input
+        type="radio"
+        id="fineness-150mm"
+        name="fineness"
+        value="150"
+        onchange="onChangeFineness(value)"
+      />
+      <label for="fineness-150mm">150mm</label>
     </div>
   </body>
 </html>
@@ -77,10 +126,10 @@
   });
 
   // light二種類
-  const light = new THREE.DirectionalLight(0xffffff, 0.75);
+  const light = new THREE.DirectionalLight(0xffffff, 0.8);
   light.shadow.camera.near = 70;
   light.shadow.camera.far = 80;
-  const light_temp = new THREE.AmbientLight(0xffffff, 0.3);
+  const light_temp = new THREE.AmbientLight(0xffffff, 0.4);
   light.castShadow = true;
   light.position.set(-40, 60, -10);
   scene.add(light);
@@ -89,24 +138,50 @@
   // model
   const loader = new GLTFLoader();
 
-  loader.load("wamodan_table.glb", function (model) {
-    model.scene.children[0].children[1].material.transparent = true;
-    model.scene.children[0].children[1].material.opacity = 0.1;
-    model.scene.children[0].children[0].castShadow = true;
-    model.scene.children[0].children[3].castShadow = true;
-    model.scene.children[0].children[2].receiveShadow = true;
-    model.scene.children[0].children[2].material.emissiveIntensity = 0.5;
-    model.scene.children[0].children[2].material.emissive.r = 1;
-    model.scene.children[0].children[2].material.emissive.g = 1;
-    model.scene.children[0].children[2].material.emissive.b = 1;
+  //rouber config
+  let rouber = null;
+  let board = null;
+  let thickness ="default";
+  let fineness = "250";
+  let type = "asanoha";
 
+  loader.load("./250/asanoha.glb", function (model) {
+    model.scene.children[0].castShadow = true;
     scene.add(model.scene);
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    rouber = model.scene;
     renderer.shadowMap.enabled = true;
     renderer.render(scene, camera);
   });
 
-  loader.load("wamodan_env.glb", function (model) {
+  loader.load("./const/wamodan_table_board.glb", function (model) {
+    model.scene.children[0].children[0].material.transparent = true;
+    model.scene.children[0].children[0].material.roughness = 0;
+    model.scene.children[0].children[0].material.metalness = 0;
+    model.scene.children[0].children[0].material.opacity = 0.1;
+    model.scene.children[0].children[3].castShadow = true;
+    model.scene.children[0].children[2].castShadow = true;
+    model.scene.children[0].children[1].receiveShadow = true;
+    model.scene.children[0].children[1].material.emissiveIntensity = 0.5;
+    model.scene.children[0].children[1].material.emissive.r = 1;
+    model.scene.children[0].children[1].material.emissive.g = 1;
+    model.scene.children[0].children[1].material.emissive.b = 1;
+    scene.add(model.scene);
+    board = model.scene;
+    renderer.shadowMap.enabled = true;
+    renderer.render(scene, camera);
+  });
+
+  let legModel = null;
+
+  loader.load("./const/wamodan_table_leg.glb", function (model) {
+    model.scene.children[0].castShadow = true;
+    scene.add(model.scene);
+    legModel = model.scene;
+    renderer.shadowMap.enabled = true;
+    renderer.render(scene, camera);
+  });
+
+  loader.load("./const/wamodan_env.glb", function (model) {
     model.scene.children[0].children[0].receiveShadow = true;
     model.scene.children[0].children[0].material.reflectivity = 0;
     model.scene.children[0].children[0].material.roughness = 1;
@@ -119,13 +194,13 @@
 
   //描画処理軽量化
   canvas.onmousedown = function mousedown() {
-    scene.remove(light);
+    light.intensity = 0;
     document.addEventListener("mousemove", onMouseMove);
   };
 
   canvas.onmouseup = function mouseup() {
     document.removeEventListener("mousemove", onMouseMove);
-    scene.add(light);
+    light.intensity = 0.8;
     renderer.render(scene, camera);
   };
 
@@ -158,6 +233,69 @@
         break;
     }
     controls.update();
+    renderer.render(scene, camera);
+  };
+
+  window.onChangeLeg = (value) => {
+    thickness = value;
+    updateChanges();
+  };
+
+  window.onChangeFineness = (value) => {
+    fineness = value;
+    scene.remove(rouber)
+    loader.load("./" + fineness + "/" + type + ".glb", function (model) {
+      model.scene.children[0].castShadow = true;
+      scene.add(model.scene);
+      rouber = model.scene;
+      renderer.render(scene, camera);
+    });
+    updateChanges();
+  };
+
+  function updateChanges(){
+
+    for(let i =0; i < legModel.children[0].morphTargetInfluences.length; i++){
+      legModel.children[0].morphTargetInfluences[i] = 0;
+    }
+
+    for(let j = 0; j < board.children[0].children.length; j++){
+      board.children[0].children[j].morphTargetInfluences[0] = 0;
+      board.children[0].children[j].morphTargetInfluences[1] = 0;
+    }
+        
+    switch (fineness) {
+      case "250":
+        if(thickness === "thin"){
+          legModel.children[0].morphTargetInfluences[0] = 1.0;
+        }
+        break;
+      case "200":
+        for(let k = 0; k < board.children[0].children.length; k++){
+          board.children[0].children[k].morphTargetInfluences[0] = 1;
+        }
+        if(thickness === "thin"){
+          legModel.children[0].morphTargetInfluences[3] = 1.0;
+        }
+        else{
+          legModel.children[0].morphTargetInfluences[1] = 1.0;
+        }
+        break;
+      case "150":
+        for(let k = 0; k < board.children[0].children.length; k++){
+          board.children[0].children[k].morphTargetInfluences[1] = 1;
+        }
+        if(thickness === "thin"){
+          legModel.children[0].morphTargetInfluences[4] = 1.0;
+        }
+        else{
+          legModel.children[0].morphTargetInfluences[2] = 1.0;
+        }
+        break;
+      default:
+        console.log("bug!");
+        break;
+    }
     renderer.render(scene, camera);
   };
 </script>
